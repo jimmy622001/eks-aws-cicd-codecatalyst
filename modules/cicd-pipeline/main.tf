@@ -1,6 +1,6 @@
-# IAM Role for CodePipeline
-resource "aws_iam_role" "codepipeline_role" {
-  name = "${var.cluster_name}-codepipeline-role"
+# IAM Role for CodeCatalyst
+resource "aws_iam_role" "codecatalyst_role" {
+  name = "${var.cluster_name}-codecatalyst-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -9,17 +9,17 @@ resource "aws_iam_role" "codepipeline_role" {
         Action = "sts:AssumeRole"
         Effect = "Allow"
         Principal = {
-          Service = "codepipeline.amazonaws.com"
+          Service = "codecatalyst.amazonaws.com"
         }
       }
     ]
   })
 }
 
-# IAM Policy for CodePipeline
-resource "aws_iam_role_policy" "codepipeline_policy" {
-  name = "${var.cluster_name}-codepipeline-policy"
-  role = aws_iam_role.codepipeline_role.id
+# IAM Policy for CodeCatalyst
+resource "aws_iam_role_policy" "codecatalyst_policy" {
+  name = "${var.cluster_name}-codecatalyst-policy"
+  role = aws_iam_role.codecatalyst_role.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -41,22 +41,17 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
       {
         Effect = "Allow"
         Action = [
-          "codebuild:BatchGetBuilds",
-          "codebuild:StartBuild"
+          "eks:DescribeCluster",
+          "eks:ListClusters",
+          "eks:DescribeNodegroup",
+          "eks:ListNodegroups"
         ]
         Resource = "*"
       },
       {
         Effect = "Allow"
         Action = [
-          "eks:DescribeCluster"
-        ]
-        Resource = "*"
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "sts:AssumeRole"
+          "codecatalyst:*"
         ]
         Resource = "*"
       }
@@ -64,10 +59,10 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
   })
 }
 
-# S3 Bucket for Pipeline Artifacts
+# S3 Bucket for CodeCatalyst Artifacts
 resource "aws_s3_bucket" "artifacts" {
-  bucket = "${var.cluster_name}-pipeline-artifacts-${data.aws_caller_identity.current.account_id}"
-  
+  bucket = "${var.cluster_name}-codecatalyst-artifacts-${data.aws_caller_identity.current.account_id}"
+
   tags = var.tags
 }
 
@@ -92,7 +87,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "artifacts" {
   rule {
     id     = "cleanup"
     status = "Enabled"
-    
+
     # Required filter - empty filter means apply to all objects
     filter {}
 
@@ -199,7 +194,8 @@ resource "aws_codebuild_project" "build" {
   service_role  = aws_iam_role.codebuild_role.arn
 
   artifacts {
-    type = "CODEPIPELINE"
+    type     = "S3"
+    location = aws_s3_bucket.artifacts.bucket
   }
 
   environment {
@@ -221,7 +217,8 @@ resource "aws_codebuild_project" "build" {
   }
 
   source {
-    type      = "CODEPIPELINE"
+    type     = "CODECOMMIT"
+    location = "https://git-codecommit.${data.aws_region.current.name}.amazonaws.com/v1/repos/${var.repository_name}"
     buildspec = templatefile("${path.module}/templates/buildspec.yml.tpl", {
       cluster_name = var.cluster_name
       aws_region   = data.aws_region.current.name
@@ -237,66 +234,27 @@ resource "aws_codebuild_project" "build" {
   tags = var.tags
 }
 
-# GitHub Connection
-resource "aws_codestarconnections_connection" "github" {
-  name          = "${var.cluster_name}-github-connection"
-  provider_type = "GitHub"
-}
+# CodeCatalyst Dev Environment
+resource "aws_codecatalyst_dev_environment" "main" {
+  space_name   = var.codecatalyst_space_name
+  project_name = var.codecatalyst_project_name
 
-# CodePipeline
-resource "aws_codepipeline" "pipeline" {
-  name     = "${var.cluster_name}-pipeline"
-  role_arn = aws_iam_role.codepipeline_role.arn
-
-  artifact_store {
-    location = aws_s3_bucket.artifacts.bucket
-    type     = "S3"
+  alias = "${var.cluster_name}-dev-env"
+  ides {
+    name = "VSCode"
   }
 
-  stage {
-    name = "Source"
+  instance_type              = var.dev_environment_instance_type
+  inactivity_timeout_minutes = var.inactivity_timeout_minutes
 
-    action {
-      name             = "Source"
-      category         = "Source"
-      owner            = "AWS"
-      provider         = "CodeStarSourceConnection"
-      version          = "1"
-      output_artifacts = ["source_output"]
-
-      configuration = {
-        ConnectionArn    = aws_codestarconnections_connection.github.arn
-        FullRepositoryId = var.github_repository
-        BranchName       = var.branch_name
-      }
-    }
+  persistent_storage {
+    size = var.storage_size
   }
 
-  stage {
-    name = "Build"
-
-    action {
-      name             = "Build"
-      category         = "Build"
-      owner            = "AWS"
-      provider         = "CodeBuild"
-      input_artifacts  = ["source_output"]
-      output_artifacts = ["build_output"]
-      version          = "1"
-
-      configuration = {
-        ProjectName = aws_codebuild_project.build.name
-      }
-    }
+  repositories {
+    repository_name = var.repository_name
+    branch_name     = var.branch_name
   }
-
-  # Add deployment stages here as needed
-  # stage {
-  #   name = "Deploy"
-  #   ...
-  # }
-
-  tags = var.tags
 }
 
 # Note: Cost optimization using Lambda functions has been moved to a separate module

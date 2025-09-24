@@ -26,11 +26,12 @@ This project provides Infrastructure as Code (IaC) for deploying:
 
 ## Prerequisites
 
-- AWS Account
+- AWS Account with appropriate IAM permissions
 - Terraform >= 1.0
-- AWS CLI configured
+- AWS CLI configured with credentials
 - kubectl installed
 - Helm 3.x
+- jq (for some deployment scripts)
 
 ## Project Structure
 
@@ -48,14 +49,6 @@ This project provides Infrastructure as Code (IaC) for deploying:
 └── main.tf               # Root module configuration
 ```
 
-## Prerequisites
-
-- AWS Account with appropriate IAM permissions
-- Terraform >= 1.0
-- AWS CLI configured with credentials
-- kubectl installed
-- Helm 3.x
-- jq (for some deployment scripts)
 
 ## Environment Setup
 
@@ -90,31 +83,71 @@ This project provides Infrastructure as Code (IaC) for deploying:
 
 ```bash
 # From repository root
-cd workspaces/<env>  # dev or prod
-
-# Initialize Terraform with backend configuration
-terraform init -backend-config="../backend.hcl"
+cd /path/to/eks-aws-cicd
 
 # Initialize the S3 bucket for Terraform state (first time only)
-cd ../..
 terraform -chdir=terraform-bootstrap init
 terraform -chdir=terraform-bootstrap apply
 ```
 
-### 2. Deploy Infrastructure
+### 2. Plan and Apply Changes
+
+#### Development Environment
 
 ```bash
-# From the environment directory (workspaces/dev or workspaces/prod)
-cd workspaces/<env>
+# From repository root
+cd /path/to/eks-aws-cicd
 
-# Initialize Terraform
+# Initialize Terraform (only needed once)
 terraform init
 
-# Review the execution plan
-terraform plan
+# Plan with development variables
+terraform plan -var-file=workspaces/dev/dev.tfvars -var-file=workspaces/dev/cicd.tfvars
 
-# Apply the configuration (type 'yes' to confirm)
-terraform apply
+# Apply changes to development
+terraform apply -var-file=workspaces/dev/dev.tfvars -var-file=workspaces/dev/cicd.tfvars
+```
+
+#### Production Environment
+
+```bash
+# From repository root
+cd /path/to/eks-aws-cicd
+
+# Initialize Terraform (only needed once if not already done)
+terraform init
+
+# Plan with production variables (always review the plan carefully!)
+terraform plan -var-file=workspaces/prod/prod.tfvars -var-file=workspaces/prod/cicd.tfvars
+
+# Apply changes to production (requires confirmation)
+terraform apply -var-file=workspaces/prod/prod.tfvars -var-file=workspaces/prod/cicd.tfvars
+```
+
+### 3. Destroy Resources (When Needed)
+
+#### Development Environment
+```bash
+# From repository root
+cd /path/to/eks-aws-cicd
+
+# See what will be destroyed
+terraform plan -destroy -var-file=workspaces/dev/dev.tfvars -var-file=workspaces/dev/cicd.tfvars
+
+# Destroy resources (use with caution!)
+terraform destroy -var-file=workspaces/dev/dev.tfvars -var-file=workspaces/dev/cicd.tfvars
+```
+
+#### Production Environment
+```bash
+# From repository root
+cd /path/to/eks-aws-cicd
+
+# See what will be destroyed
+terraform plan -destroy -var-file=workspaces/prod/prod.tfvars -var-file=workspaces/prod/cicd.tfvars
+
+# Destroy resources (use with extreme caution!)
+terraform destroy -var-file=workspaces/prod/prod.tfvars -var-file=workspaces/prod/cicd.tfvars
 ```
 
 ### 3. Access the Environment

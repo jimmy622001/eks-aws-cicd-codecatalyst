@@ -57,6 +57,30 @@ variable "replica_count" {
   description = "Number of Kafka brokers"
   type        = number
 }
+# In variables.tf
+variable "kafka_storage_class" {
+  description = "Storage class for Kafka persistent volumes"
+  type        = string
+  default     = "gp3"
+}
+
+variable "kafka_namespace" {
+  description = "Kubernetes namespace for Kafka resources"
+  type        = string
+  default     = "kafka"
+}
+
+variable "kafka_storage_size" {
+  description = "Storage size for Kafka persistent volumes"
+  type        = string
+  default     = "100Gi"
+}
+
+variable "kafka_replica_count" {
+  description = "Number of Kafka replicas"
+  type        = number
+  default     = 3
+}
 variable "system_node_group" {
   description = "Configuration for the system node group"
   type = object({
@@ -158,14 +182,24 @@ variable "trivy_token" {
   default     = "" # Will be set in terraform.tfvars or via environment variables
 }
 
-# CI/CD Pipeline Variables
-variable "github_repository" {
-  description = "GitHub repository in format 'owner/repo' (e.g., 'your-username/your-repo')"
+# CodeCatalyst Pipeline Variables
+variable "codecatalyst_space_name" {
+  description = "CodeCatalyst space name"
+  type        = string
+}
+
+variable "codecatalyst_project_name" {
+  description = "CodeCatalyst project name"
+  type        = string
+}
+
+variable "repository_name" {
+  description = "CodeCatalyst repository name"
   type        = string
 }
 
 variable "branch_name" {
-  description = "Branch to trigger the CI/CD pipeline"
+  description = "Branch for CodeCatalyst workflows"
   type        = string
   default     = "main"
 }
@@ -182,11 +216,22 @@ variable "enable_cost_optimization" {
   default     = true
 }
 
-variable "github_token" {
-  description = "GitHub personal access token for repository access (optional, can use AWS CodeStar connection instead)"
+variable "dev_environment_instance_type" {
+  description = "Instance type for CodeCatalyst dev environment"
   type        = string
-  sensitive   = true
-  default     = ""
+  default     = "dev.standard1.medium"
+}
+
+variable "inactivity_timeout_minutes" {
+  description = "Inactivity timeout for dev environment in minutes"
+  type        = number
+  default     = 15
+}
+
+variable "storage_size" {
+  description = "Storage size for dev environment in GB"
+  type        = number
+  default     = 16
 }
 
 variable "slack_webhook_url" {

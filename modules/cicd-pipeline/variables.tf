@@ -3,13 +3,41 @@ variable "cluster_name" {
   type        = string
 }
 
-variable "github_repository" {
-  description = "GitHub repository in format 'owner/repo'"
+variable "codecatalyst_space_name" {
+  description = "CodeCatalyst space name"
   type        = string
 }
 
+variable "codecatalyst_project_name" {
+  description = "CodeCatalyst project name"
+  type        = string
+}
+
+variable "repository_name" {
+  description = "CodeCatalyst repository name"
+  type        = string
+}
+
+variable "dev_environment_instance_type" {
+  description = "Instance type for CodeCatalyst dev environment"
+  type        = string
+  default     = "dev.standard1.medium"
+}
+
+variable "inactivity_timeout_minutes" {
+  description = "Inactivity timeout for dev environment in minutes"
+  type        = number
+  default     = 15
+}
+
+variable "storage_size" {
+  description = "Storage size for dev environment in GB"
+  type        = number
+  default     = 16
+}
+
 variable "branch_name" {
-  description = "Branch to trigger the pipeline"
+  description = "Branch for CodeCatalyst workflows"
   type        = string
   default     = "main"
 }

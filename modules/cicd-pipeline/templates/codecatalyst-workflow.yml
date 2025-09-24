@@ -1,0 +1,74 @@
+Name: EKS-Deploy-Workflow
+SchemaVersion: "1.0"
+
+Triggers:
+  - Type: PUSH
+    Branches:
+      - ${branch_name}
+
+Actions:
+  Build:
+    Identifier: aws/build@v1
+    Inputs:
+      Sources:
+        - WorkflowSource
+    Configuration:
+      Steps:
+        - Run: echo "Starting build process"
+        - Run: |
+            # Install kubectl
+            curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+            chmod +x kubectl
+            sudo mv kubectl /usr/local/bin/
+        - Run: |
+            # Install Helm
+            curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        - Run: |
+            # Update kubeconfig
+            aws eks update-kubeconfig --region ${aws_region} --name ${cluster_name}
+        - Run: |
+            # Deploy application
+            if [ -f "application/deployment.yaml" ]; then
+              kubectl apply -f application/
+            fi
+        - Run: echo "Build completed successfully"
+    Environment:
+      Name: ${cluster_name}-build-env
+      Connections:
+        - Name: ${cluster_name}-aws-connection
+          Role: ${codecatalyst_role_arn}
+    Outputs:
+      Artifacts:
+        - Name: BuildArtifacts
+          Files:
+            - "**/*"
+
+  Deploy:
+    Identifier: aws/managed-test@v1
+    DependsOn:
+      - Build
+    Inputs:
+      Sources:
+        - WorkflowSource
+      Artifacts:
+        - BuildArtifacts
+    Configuration:
+      Steps:
+        - Run: echo "Starting deployment to EKS"
+        - Run: |
+            # Verify cluster connectivity
+            kubectl get nodes
+        - Run: |
+            # Apply Kubernetes manifests
+            if [ -d "application" ]; then
+              kubectl apply -f application/ --recursive
+            fi
+        - Run: |
+            # Verify deployment
+            kubectl get pods -A
+        - Run: echo "Deployment completed successfully"
+    Environment:
+      Name: ${cluster_name}-deploy-env
+      Connections:
+        - Name: ${cluster_name}-aws-connection
+          Role: ${codecatalyst_role_arn}
