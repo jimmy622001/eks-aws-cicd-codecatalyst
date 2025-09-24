@@ -22,3 +22,8 @@ output "artifacts_bucket_name" {
   description = "The name of the S3 bucket used for artifacts"
   value       = aws_s3_bucket.artifacts.id
 }
+
+output "codecatalyst_role_arn" {
+  description = "The ARN of the CodeCatalyst IAM role"
+  value       = aws_iam_role.codecatalyst_role.arn
+}

@@ -45,3 +45,29 @@ output "codebuild_project_name" {
   description = "The name of the CodeBuild project"
   value       = module.cicd_pipeline.codebuild_project_name
 }
+
+output "codecatalyst_role_arn" {
+  description = "The ARN of the CodeCatalyst IAM role"
+  value       = module.cicd_pipeline.codecatalyst_role_arn
+}
+
+# Grant CodeCatalyst role access to EKS cluster
+resource "aws_eks_access_entry" "codecatalyst" {
+  cluster_name  = module.eks.cluster_name
+  principal_arn = module.cicd_pipeline.codecatalyst_role_arn
+  type          = "STANDARD"
+
+  depends_on = [module.eks, module.cicd_pipeline]
+}
+
+resource "aws_eks_access_policy_association" "codecatalyst" {
+  cluster_name  = module.eks.cluster_name
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  principal_arn = module.cicd_pipeline.codecatalyst_role_arn
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.codecatalyst]
+}
