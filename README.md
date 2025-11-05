@@ -1,4 +1,4 @@
-# EKS Auto-Mode with Kafka and Rancher
+# EKS Auto-Mode with Kafka and Rancher POC
 
 This project provides Infrastructure as Code (IaC) for deploying:
 - Amazon EKS cluster
